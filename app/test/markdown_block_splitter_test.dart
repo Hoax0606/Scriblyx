@@ -129,6 +129,43 @@ void main() {
       expect(html.content, contains('</details>'));
     });
 
+    test('details 는 안에 빈 줄이 있어도 닫는 태그까지 한 덩어리다', () {
+      final blocks = nonBlank('''
+<details><summary>접힌 제목</summary>
+
+안쪽 문단입니다.
+
+- 안쪽 목록
+
+</details>
+
+바깥 문단
+''');
+      expect(blocks[0].kind, MarkdownBlockKind.html);
+      expect(blocks[0].content, contains('안쪽 문단입니다.'));
+      expect(blocks[0].content, contains('- 안쪽 목록'));
+      expect(blocks[0].content, endsWith('</details>'));
+      expect(blocks[1].content, '바깥 문단');
+    });
+
+    test('pre 도 안의 빈 줄을 품는다', () {
+      final blocks = nonBlank('<pre>\n한 줄\n\n두 줄\n</pre>\n\n다음\n');
+      expect(blocks[0].content, contains('두 줄'));
+      expect(blocks[1].content, '다음');
+    });
+
+    test('닫히지 않은 details 는 문서 끝까지 본다', () {
+      final blocks = nonBlank('<details><summary>제목</summary>\n\n내용\n');
+      expect(blocks.length, 1);
+      expect(blocks.single.content, contains('내용'));
+    });
+
+    test('일반 HTML 태그는 빈 줄에서 끊긴다', () {
+      final blocks = nonBlank('<div>\n안쪽\n</div>\n\n바깥\n');
+      expect(blocks[0].kind, MarkdownBlockKind.html);
+      expect(blocks[1].content, '바깥');
+    });
+
     test('수평선과 frontmatter 구분선을 혼동하지 않는다', () {
       final blocks = nonBlank('본문\n\n---\n\n다음 본문\n');
       expect(blocks[1].kind, MarkdownBlockKind.thematicBreak);

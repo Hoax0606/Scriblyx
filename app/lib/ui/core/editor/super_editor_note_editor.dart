@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:super_editor/super_editor.dart';
 
 import '../../../data/markdown/note_markdown_codec.dart';
+import 'editor_reactions.dart';
 import 'note_editor.dart';
 
 /// super_editor 를 [NoteEditorController] 계약에 맞춘 구현.
@@ -47,9 +48,14 @@ class SuperEditorNoteController extends NoteEditorController {
   void _build(String markdown) {
     _document = _codec.decode(markdown);
     _composer = MutableDocumentComposer();
-    _editor = createDefaultDocumentEditor(
-      document: _document,
-      composer: _composer,
+    // createDefaultDocumentEditor 는 반응 목록을 받지 않아 직접 만든다.
+    _editor = Editor(
+      editables: {
+        Editor.documentKey: _document,
+        Editor.composerKey: _composer,
+      },
+      requestHandlers: List.from(defaultRequestHandlers),
+      reactionPipeline: notionStyleReactions(),
     );
     _document.addListener(_onDocumentChanged);
   }
