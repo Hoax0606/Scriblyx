@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:super_editor/super_editor.dart';
 
+import '../../../data/markdown/note_markdown_codec.dart';
 import 'note_editor.dart';
 
 /// super_editor 를 [NoteEditorController] 계약에 맞춘 구현.
 ///
-/// 본문은 super_editor 의 마크다운 직렬화를 거쳐 오간다. 이 직렬화는 일부
-/// 마크다운 요소를 보존하지 못하므로, 편집하지 않은 블록을 원본 그대로 두는
-/// 처리는 아직 들어 있지 않다.
+/// 본문은 [NoteMarkdownCodec] 을 거쳐 오간다. 편집하지 않은 블록은 불러올 때의
+/// 원본 조각이 그대로 다시 쓰인다.
 class SuperEditorNoteController extends NoteEditorController {
   SuperEditorNoteController() {
     _build('');
   }
+
+  final NoteMarkdownCodec _codec = NoteMarkdownCodec();
 
   late MutableDocument _document;
   late MutableDocumentComposer _composer;
@@ -25,7 +27,7 @@ class SuperEditorNoteController extends NoteEditorController {
   Editor get editor => _editor;
 
   @override
-  String get text => _serialized ??= serializeDocumentToMarkdown(_document);
+  String get text => _serialized ??= _codec.encode(_document);
 
   @override
   set text(String value) {
@@ -43,17 +45,7 @@ class SuperEditorNoteController extends NoteEditorController {
   }
 
   void _build(String markdown) {
-    _document = markdown.isEmpty
-        ? MutableDocument(
-            nodes: [
-              ParagraphNode(
-                id: Editor.createNodeId(),
-                text: AttributedText(''),
-              ),
-            ],
-          )
-        : deserializeMarkdownToDocument(markdown);
-
+    _document = _codec.decode(markdown);
     _composer = MutableDocumentComposer();
     _editor = createDefaultDocumentEditor(
       document: _document,
@@ -89,8 +81,19 @@ Widget _buildSuperEditor(
     // 다른 노트를 열면 Editor 인스턴스가 바뀐다. 상태를 새로 만들도록 키를 건다.
     key: ValueKey(editor),
     editor: editor,
+    componentBuilders: _componentBuilders(editor),
     stylesheet: defaultStylesheet.copyWith(
       documentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 48),
     ),
   );
 }
+
+/// 표와 할 일은 super_editor 의 기본 목록에 없다. 빠지면 해당 블록이
+/// UnknownComponentBuilder 로 떨어져 빈 상자로 그려진다.
+///
+/// [TaskComponentBuilder] 는 체크 상태를 바꾸기 위해 [Editor] 를 받는다.
+List<ComponentBuilder> _componentBuilders(Editor editor) => [
+  TaskComponentBuilder(editor),
+  const MarkdownTableComponentBuilder(),
+  ...defaultComponentBuilders,
+];
