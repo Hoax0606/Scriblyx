@@ -112,7 +112,8 @@ void main() {
     await repository.write(created.id, '앱이 쓴 내용');
 
     final reported = repository.externalChanges.first;
-    await Future<void>.delayed(const Duration(milliseconds: 20));
+    // 저장소는 자신의 쓰기 직후 잠깐 감시 이벤트를 무시한다. 그보다 늦게 쓴다.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
     await File(
       p.join(root.path, created.id.relativePath),
     ).writeAsString('밖에서 바꾼 내용', flush: true);

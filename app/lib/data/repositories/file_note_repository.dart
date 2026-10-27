@@ -36,12 +36,21 @@ class FileNoteRepository implements NoteRepository {
   /// 비교해야 하는데, Windows에서 열린 핸들이 있으면 이름 변경이 거부된다.
   final Map<String, DateTime> _writtenAt = {};
 
+  /// 이 저장소가 지금 건드리고 있는 경로.
+  ///
+  /// 감시 이벤트는 쓰기가 끝나기 전에 도착할 수 있어 [_writtenAt] 만으로는
+  /// 자신의 쓰기를 가려낼 수 없다. 작업 시작 시점부터 막는다.
+  final Set<String> _writing = {};
+
   late final StreamSubscription<WorkspaceChange> _watchSubscription;
 
   bool _disposed = false;
 
   static const _newNoteBaseName = '새 노트';
   static final _invalidFileNameChars = RegExp(r'[\\/:*?"<>|]');
+
+  /// 쓰기가 끝난 뒤에도 감시 이벤트가 조금 늦게 도착한다. 그동안 더 막는다.
+  static const _selfWriteGrace = Duration(milliseconds: 150);
 
   @override
   Stream<WorkspaceChange> get externalChanges => _external.stream;
@@ -65,16 +74,22 @@ class FileNoteRepository implements NoteRepository {
 
   @override
   Future<Note> write(NoteId id, String body) async {
-    final modifiedAt = await _files.write(id.relativePath, body);
-    _writtenAt[id.relativePath] = modifiedAt;
+    final modifiedAt = await _guardSelfWrite(id.relativePath, () async {
+      final at = await _files.write(id.relativePath, body);
+      _writtenAt[id.relativePath] = at;
+      return at;
+    });
     return Note(id: id, body: body, modifiedAt: modifiedAt);
   }
 
   @override
   Future<NoteMeta> create() async {
     final relativePath = await _availableNewNotePath();
-    final modifiedAt = await _files.write(relativePath, '');
-    _writtenAt[relativePath] = modifiedAt;
+    final modifiedAt = await _guardSelfWrite(relativePath, () async {
+      final at = await _files.write(relativePath, '');
+      _writtenAt[relativePath] = at;
+      return at;
+    });
     return NoteMeta(
       id: NoteId(relativePath),
       title: _titleOf(relativePath),
@@ -101,7 +116,12 @@ class FileNoteRepository implements NoteRepository {
       throw NoteNameTakenException(title);
     }
 
-    final modifiedAt = await _files.move(id.relativePath, targetPath);
+    final modifiedAt = await _guardSelfWrite(id.relativePath, () async {
+      return _guardSelfWrite(
+        targetPath,
+        () => _files.move(id.relativePath, targetPath),
+      );
+    });
     _writtenAt.remove(id.relativePath);
     _writtenAt[targetPath] = modifiedAt;
 
@@ -114,7 +134,10 @@ class FileNoteRepository implements NoteRepository {
 
   @override
   Future<void> delete(NoteId id) async {
-    await _files.delete(id.relativePath);
+    await _guardSelfWrite(
+      id.relativePath,
+      () => _files.delete(id.relativePath),
+    );
     _writtenAt.remove(id.relativePath);
   }
 
@@ -152,9 +175,20 @@ class FileNoteRepository implements NoteRepository {
     }
   }
 
+  /// [path] 를 건드리는 동안과 그 직후의 감시 이벤트를 자신의 것으로 간주한다.
+  Future<T> _guardSelfWrite<T>(String path, Future<T> Function() action) async {
+    _writing.add(path);
+    try {
+      return await action();
+    } finally {
+      Timer(_selfWriteGrace, () => _writing.remove(path));
+    }
+  }
+
   Future<void> _onWatchEvent(WorkspaceChange change) async {
     if (_disposed) return;
     final path = change.id.relativePath;
+    if (_writing.contains(path)) return;
 
     if (change.kind == WorkspaceChangeKind.removed) {
       _writtenAt.remove(path);
