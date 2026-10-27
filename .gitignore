@@ -1,0 +1,27 @@
+# 에디터 · 도구 로컬 설정
+.omc/
+.claude/
+CLAUDE.md
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Flutter 산출물 (app/.gitignore 와 중복이지만 루트에서도 막는다)
+**/.dart_tool/
+**/build/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+
+# 로그 · 임시 파일
+*.log
+*.tmp
+
+# 기획 문서는 로컬에만 둔다
+Documents/
