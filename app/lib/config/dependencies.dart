@@ -6,7 +6,7 @@ import '../data/services/workspace_locator.dart';
 import '../data/services/workspace_watch_service.dart';
 import '../domain/models/workspace.dart';
 import '../ui/core/editor/note_editor.dart';
-import '../ui/core/editor/plain_text_editor.dart';
+import '../ui/core/editor/super_editor_note_editor.dart';
 import '../ui/note_edit/view_model/note_edit_viewmodel.dart';
 import '../ui/note_list/view_model/note_list_viewmodel.dart';
 
@@ -38,7 +38,7 @@ class AppDependencies {
 
     return AppDependencies._(
       workspace: workspace,
-      editorFactory: plainTextEditorFactory(),
+      editorFactory: superEditorNoteFactory(),
       repository: FileNoteRepository(
         files: files,
         watcher: WorkspaceWatchService(files),

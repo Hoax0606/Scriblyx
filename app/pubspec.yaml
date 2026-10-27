@@ -37,6 +37,13 @@ dependencies:
   path: ^1.9.1
   path_provider: ^2.1.6
   shared_preferences: ^2.5.6
+  # pub.dev 의 super_editor 는 0.2.7(2024-06)에서 멈춰 있고 현재 Flutter 에서 컴파일되지 않는다.
+  # 동작을 확인한 커밋으로 고정한다.
+  super_editor:
+    git:
+      url: https://github.com/Flutter-Bounty-Hunters/super_editor.git
+      path: super_editor
+      ref: b9243d4d3640ef07fe88c0f883aa32868265e30a
 
 dev_dependencies:
   flutter_test:
