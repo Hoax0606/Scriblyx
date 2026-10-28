@@ -18,6 +18,12 @@ abstract class BlockCodec {
   /// 한 블록에서 나온 노드 묶음을 맡을 수 있는지. 묶음의 첫 노드로 판단한다.
   bool canEncode(DocumentNode first);
 
+  /// [first] 로 시작하는 묶음이 [candidate] 까지 포함하는지.
+  ///
+  /// 기본은 원본 블록이 같은 노드끼리 묶는다. 편집 중에 새로 생긴 노드는
+  /// 원본 블록이 없으므로, 소속을 따로 표시하는 블록은 이 메서드로 알린다.
+  bool ownsFollowing(DocumentNode first, DocumentNode candidate) => false;
+
   /// 노드 묶음을 마크다운으로 되돌린다. 뒤따르는 빈 줄까지 포함한다.
   String encode(List<DocumentNode> nodes);
 }

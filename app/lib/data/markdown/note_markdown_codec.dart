@@ -89,19 +89,38 @@ class NoteMarkdownCodec {
     return buffer.toString();
   }
 
-  /// 문서 순서대로 훑으면서 같은 블록에서 나온 연속된 노드를 묶는다.
+  /// 문서 순서대로 훑으면서 한 블록이 될 노드들을 묶는다.
+  ///
+  /// 보통은 같은 원본 블록에서 나온 노드끼리 묶지만, 소속을 따로 표시하는
+  /// 블록은 그 표시를 따른다. 편집 중에 새로 생긴 노드는 원본 블록이 없어서
+  /// 표시가 없으면 묶이지 못한다.
   List<_NodeGroup> _groupByBlock(Document document) {
     final groups = <_NodeGroup>[];
+
     for (final node in document) {
-      final blockId = node.getMetadataValue(_blockKey) as String?;
       final last = groups.isEmpty ? null : groups.last;
-      if (blockId != null && last != null && last.blockId == blockId) {
+
+      if (last != null && _belongsToGroup(last, node)) {
         last.nodes.add(node);
-      } else {
-        groups.add(_NodeGroup(blockId, [node]));
+        continue;
       }
+
+      groups.add(_NodeGroup(node.getMetadataValue(_blockKey) as String?, [node]));
     }
+
     return groups;
+  }
+
+  bool _belongsToGroup(_NodeGroup group, DocumentNode node) {
+    final first = group.nodes.first;
+
+    for (final codec in blockCodecs) {
+      if (!codec.canEncode(first)) continue;
+      return codec.ownsFollowing(first, node);
+    }
+
+    final blockId = node.getMetadataValue(_blockKey) as String?;
+    return blockId != null && group.blockId == blockId;
   }
 
   /// 블록에서 나온 노드가 하나도 빠지지 않고 전부 그대로일 때만 원본을 쓴다.

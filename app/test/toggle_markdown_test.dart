@@ -105,6 +105,52 @@ void main() {
       expect(output, contains('</details>'));
     });
 
+    test('편집 중 새로 만든 안쪽 블록도 details 안에 적힌다', () {
+      final codec = NoteMarkdownCodec();
+      final document = codec.decode(_withToggle);
+      final toggle = document.whereType<ToggleNode>().single;
+
+      // 편집으로 생긴 노드는 원본 블록 표시가 없고 소속 표시만 갖는다.
+      final last = document.lastWhere(
+        (node) => node.toggleParentId == toggle.id,
+      );
+      document.insertNodeAfter(
+        existingNodeId: last.id,
+        newNode: ParagraphNode(
+          id: Editor.createNodeId(),
+          text: AttributedText('새로 쓴 안쪽 줄'),
+          metadata: {toggleParentKey: toggle.id},
+        ),
+      );
+
+      final output = codec.encode(document);
+      final detailsStart = output.indexOf('<details>');
+      final detailsEnd = output.indexOf('</details>');
+      final added = output.indexOf('새로 쓴 안쪽 줄');
+
+      expect(added, greaterThan(detailsStart));
+      expect(added, lessThan(detailsEnd));
+      expect('</details>'.allMatches(output).length, 1);
+    });
+
+    test('토글 밖에 새로 만든 블록은 details 밖에 적힌다', () {
+      final codec = NoteMarkdownCodec();
+      final document = codec.decode(_withToggle);
+
+      document.add(
+        ParagraphNode(
+          id: Editor.createNodeId(),
+          text: AttributedText('토글 밖 새 줄'),
+        ),
+      );
+
+      final output = codec.encode(document);
+      expect(
+        output.indexOf('토글 밖 새 줄'),
+        greaterThan(output.indexOf('</details>')),
+      );
+    });
+
     test('소속 표시가 파일로 새어나가지 않는다', () {
       final codec = NoteMarkdownCodec();
       final document = codec.decode(_withToggle);

@@ -6,7 +6,7 @@ import '../../../../data/markdown/blocks/toggle_node.dart';
 /// 토글 제목 줄을 그린다.
 ///
 /// 화살표를 누르면 접히고 펴진다. 제목은 보통 글처럼 편집할 수 있다.
-/// 접혀 있을 때 자식 노드를 레이아웃에서 빼는 일은 [CollapsedTogglePhase] 가
+/// 안쪽 노드를 들여쓰고 접혔을 때 빼는 일은 [TogglePhase] 가
 /// 맡는다.
 class ToggleComponentBuilder implements ComponentBuilder {
   const ToggleComponentBuilder(this._editor);
@@ -164,44 +164,72 @@ class _ToggleComponentState extends State<ToggleComponent>
 
   @override
   Widget build(BuildContext context) {
-    final expanded = widget.viewModel.isExpanded;
+    final viewModel = widget.viewModel;
+    final expanded = viewModel.isExpanded;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 28,
-          child: IconButton(
-            onPressed: () => widget.viewModel.setExpanded(!expanded),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            iconSize: 18,
-            icon: Icon(
-              expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+    return Directionality(
+      textDirection: viewModel.textDirection,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // IconButton 은 자체 포커스 노드를 가져 에디터의 포커스를 가져간다.
+          // 그러면 화살표를 누른 뒤 글이 입력되지 않는다.
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => viewModel.setExpanded(!expanded),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4, top: 2),
+                child: Icon(
+                  expanded
+                      ? Icons.keyboard_arrow_down
+                      : Icons.keyboard_arrow_right,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
-            tooltip: expanded ? '접기' : '펴기',
           ),
-        ),
-        Expanded(
-          child: TextComponent(
-            key: _textKey,
-            text: widget.viewModel.text,
-            textStyleBuilder: widget.viewModel.textStyleBuilder,
-            textSelection: widget.viewModel.selection,
-            selectionColor: widget.viewModel.selectionColor,
-            highlightWhenEmpty: widget.viewModel.highlightWhenEmpty,
+          Expanded(
+            child: TextComponent(
+              key: _textKey,
+              text: viewModel.text,
+              textDirection: viewModel.textDirection,
+              textAlign: viewModel.textAlignment,
+              maxLines: viewModel.maxLines,
+              overflow: viewModel.overflow,
+              textStyleBuilder: viewModel.textStyleBuilder,
+              inlineWidgetBuilders: viewModel.inlineWidgetBuilders,
+              textSelection: viewModel.selection,
+              selectionColor: viewModel.selectionColor,
+              highlightWhenEmpty: viewModel.highlightWhenEmpty,
+              underlines: viewModel.createUnderlines(),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-/// 접힌 토글에 속한 노드를 레이아웃에서 뺀다.
+/// 토글 제목에 쓰는 글자 모양. 기본 문단보다 조금 굵게 둔다.
+final toggleStyleRule = StyleRule(
+  const BlockSelector('toggle'),
+  (document, node) => {
+    Styles.padding: const CascadingPadding.only(top: 12),
+    Styles.textStyle: const TextStyle(fontWeight: FontWeight.w600),
+  },
+);
+
+/// 토글 안쪽 노드를 들여쓰고, 접힌 토글의 안쪽은 레이아웃에서 뺀다.
 ///
 /// 높이만 0 으로 만들면 보이지 않는 자리에 커서가 들어가 입력이 사라진 것처럼
 /// 보인다. 아예 빼야 그런 일이 없다.
-class CollapsedTogglePhase extends SingleColumnLayoutStylePhase {
+class TogglePhase extends SingleColumnLayoutStylePhase {
+  /// 안쪽임을 드러내는 들여쓰기. 토글 화살표 너비와 맞춘다.
+  static const childIndent = 24.0;
+
   @override
   SingleColumnLayoutViewModel style(
     Document document,
@@ -211,23 +239,27 @@ class CollapsedTogglePhase extends SingleColumnLayoutStylePhase {
       for (final node in document)
         if (node is ToggleNode && !node.isExpanded) node.id,
     };
-    if (collapsed.isEmpty) return viewModel;
+
+    final visible = <SingleColumnLayoutComponentViewModel>[];
+    for (final component in viewModel.componentViewModels) {
+      final parentId = document.getNodeById(component.nodeId)?.toggleParentId;
+      if (parentId == null) {
+        visible.add(component);
+        continue;
+      }
+      if (collapsed.contains(parentId)) continue;
+
+      visible.add(
+        component.copy()
+          ..padding = component.padding.add(
+            const EdgeInsets.only(left: childIndent),
+          ),
+      );
+    }
 
     return SingleColumnLayoutViewModel(
       padding: viewModel.padding,
-      componentViewModels: [
-        for (final component in viewModel.componentViewModels)
-          if (!_isHidden(document, component.nodeId, collapsed)) component,
-      ],
+      componentViewModels: visible,
     );
-  }
-
-  bool _isHidden(
-    Document document,
-    String nodeId,
-    Set<String> collapsedToggleIds,
-  ) {
-    final parentId = document.getNodeById(nodeId)?.toggleParentId;
-    return parentId != null && collapsedToggleIds.contains(parentId);
   }
 }

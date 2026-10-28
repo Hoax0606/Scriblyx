@@ -1,5 +1,7 @@
 import 'package:super_editor/super_editor.dart';
 
+import '../../../data/markdown/blocks/toggle_node.dart';
+
 /// 줄 맨 앞에 친 글자로 블록을 바꾸는 규칙들.
 ///
 /// super_editor 기본값 대신 노션 표기를 따른다. 제목은 세 단계까지만 두고,
@@ -21,6 +23,7 @@ List<EditReaction> notionStyleReactions() => [
   const HeadingReaction(),
   const QuoteReaction(),
   const TaskReaction(),
+  const ToggleReaction(),
 ];
 
 /// `#` 부터 `###` 까지로 제목을 만든다.
@@ -110,6 +113,50 @@ class TaskReaction extends ParagraphPrefixConversionReaction {
     requestDispatcher.execute([
       ..._deletePrefix(paragraph, match.length),
       ConvertParagraphToTaskRequest(nodeId: paragraph.id),
+    ]);
+  }
+}
+
+/// `>` 와 공백으로 토글을 만든다. 노션과 같은 표기다.
+///
+/// 표준 마크다운에서 `>` 는 인용이지만, 노션은 토글에 쓰고 인용을 `"` 로
+/// 밀어냈다. 우리도 그 쪽을 따른다.
+class ToggleReaction extends ParagraphPrefixConversionReaction {
+  const ToggleReaction();
+
+  static final _pattern = RegExp(r'^>\s');
+
+  @override
+  RegExp get pattern => _pattern;
+
+  @override
+  void onPrefixMatched(
+    EditContext editContext,
+    RequestDispatcher requestDispatcher,
+    List<EditEvent> changeList,
+    ParagraphNode paragraph,
+    String match,
+  ) {
+    final title = paragraph.text.removeRegion(
+      startOffset: 0,
+      endOffset: match.length,
+    );
+
+    requestDispatcher.execute([
+      ReplaceNodeRequest(
+        existingNodeId: paragraph.id,
+        newNode: ToggleNode(id: paragraph.id, text: title),
+      ),
+      ChangeSelectionRequest(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: paragraph.id,
+            nodePosition: TextNodePosition(offset: title.length),
+          ),
+        ),
+        SelectionChangeType.placeCaret,
+        SelectionReason.userInteraction,
+      ),
     ]);
   }
 }

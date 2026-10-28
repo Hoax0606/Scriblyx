@@ -65,6 +65,10 @@ class ToggleBlockCodec extends BlockCodec {
   bool canEncode(DocumentNode first) => first is ToggleNode;
 
   @override
+  bool ownsFollowing(DocumentNode first, DocumentNode candidate) =>
+      first is ToggleNode && candidate.toggleParentId == first.id;
+
+  @override
   String encode(List<DocumentNode> nodes) {
     final toggle = nodes.first as ToggleNode;
     final children = nodes.skip(1).toList();

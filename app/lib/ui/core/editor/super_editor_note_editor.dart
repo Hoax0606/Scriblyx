@@ -4,6 +4,7 @@ import 'package:super_editor/super_editor.dart';
 import '../../../data/markdown/note_markdown_codec.dart';
 import 'blocks/toggle_component.dart';
 import 'editor_reactions.dart';
+import 'editor_requests.dart';
 import 'note_editor.dart';
 
 /// super_editor 를 [NoteEditorController] 계약에 맞춘 구현.
@@ -55,7 +56,7 @@ class SuperEditorNoteController extends NoteEditorController {
         Editor.documentKey: _document,
         Editor.composerKey: _composer,
       },
-      requestHandlers: List.from(defaultRequestHandlers),
+      requestHandlers: scriblyxRequestHandlers(),
       reactionPipeline: notionStyleReactions(),
     );
     _document.addListener(_onDocumentChanged);
@@ -89,9 +90,10 @@ Widget _buildSuperEditor(
     key: ValueKey(editor),
     editor: editor,
     componentBuilders: _componentBuilders(editor),
-    customStylePhases: [CollapsedTogglePhase()],
+    customStylePhases: [TogglePhase()],
     stylesheet: defaultStylesheet.copyWith(
       documentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 48),
+      addRulesAfter: [toggleStyleRule],
     ),
   );
 }
