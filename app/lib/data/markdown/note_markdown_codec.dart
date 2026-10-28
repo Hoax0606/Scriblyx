@@ -1,10 +1,9 @@
 import 'package:super_editor/super_editor.dart';
 
-import 'blocks/toggle_node.dart';
+import 'blocks/block_codecs.dart';
 import 'markdown_block.dart';
 import 'markdown_block_splitter.dart';
 import 'node_serializers.dart';
-import 'toggle_markdown.dart';
 
 /// 같은 블록에서 나온 노드들을 묶는 식별자.
 const _blockKey = 'scriblyxBlock';
@@ -122,19 +121,17 @@ class NoteMarkdownCodec {
     DocumentNode tag(DocumentNode node) =>
         node.copyWithAddedMetadata({_blockKey: blockId});
 
-    if (block.kind == MarkdownBlockKind.html &&
-        isToggleBlock(block.content)) {
-      final toggle = decodeToggle(block.content, tag);
-      if (toggle != null) return toggle;
+    for (final codec in blockCodecs) {
+      final nodes = codec.decode(block);
+      if (nodes != null) return nodes.map(tag);
     }
 
     return deserializeMarkdownToDocument(block.content).map(tag);
   }
 
   String _encodeNodes(List<DocumentNode> nodes) {
-    final first = nodes.first;
-    if (first is ToggleNode) {
-      return encodeToggle(first, nodes.skip(1).toList());
+    for (final codec in blockCodecs) {
+      if (codec.canEncode(nodes.first)) return codec.encode(nodes);
     }
 
     final text = serializeDocumentToMarkdown(

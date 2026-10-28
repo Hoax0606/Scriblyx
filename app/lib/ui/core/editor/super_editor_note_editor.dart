@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:super_editor/super_editor.dart';
 
 import '../../../data/markdown/note_markdown_codec.dart';
+import 'blocks/toggle_component.dart';
 import 'editor_reactions.dart';
 import 'note_editor.dart';
 
@@ -88,6 +89,7 @@ Widget _buildSuperEditor(
     key: ValueKey(editor),
     editor: editor,
     componentBuilders: _componentBuilders(editor),
+    customStylePhases: [CollapsedTogglePhase()],
     stylesheet: defaultStylesheet.copyWith(
       documentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 48),
     ),
@@ -99,6 +101,7 @@ Widget _buildSuperEditor(
 ///
 /// [TaskComponentBuilder] 는 체크 상태를 바꾸기 위해 [Editor] 를 받는다.
 List<ComponentBuilder> _componentBuilders(Editor editor) => [
+  ToggleComponentBuilder(editor),
   TaskComponentBuilder(editor),
   const MarkdownTableComponentBuilder(),
   ...defaultComponentBuilders,
